@@ -7,7 +7,6 @@
 		"npm"
     ],
     "filePatterns": [
-        "package.json$",
         "^Dockerfile"
     ]
 }
