@@ -3,10 +3,6 @@
     "description": "Test CI/CD workflow template.",
     "iconName": "octicon mark-github",
     "categories": [
-        "Continuous integration",
-		"npm"
-    ],
-    "filePatterns": [
-        "^Dockerfile"
+        "Continuous integration"
     ]
 }
