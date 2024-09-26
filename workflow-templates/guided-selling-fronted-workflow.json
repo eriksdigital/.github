@@ -2,7 +2,6 @@
     "name": "Frontend Guided Selling workflow.",
     "description": "Template workflow for frontend guided selling services.",
     "categories": [
-        "Continuous integration",
-		"npm"
+        "Continuous integration"
     ]
 }
