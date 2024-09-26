@@ -5,9 +5,5 @@
     "categories": [
         "Continuous integration",
 		"npm"
-    ],
-    "filePatterns": [
-        "package.json$",
-        "^Dockerfile"
     ]
 }
