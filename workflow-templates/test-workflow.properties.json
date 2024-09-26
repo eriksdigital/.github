@@ -1,8 +1,13 @@
 {
     "name": "Test Workflow",
     "description": "Test CI/CD workflow template.",
-    "iconName": "octicon mark-github",
+    "iconName": "ERIKS_logo",
     "categories": [
-        "Continuous integration"
+        "Continuous integration",
+		"npm"
+    ],
+    "filePatterns": [
+        "package.json$",
+        "^Dockerfile"
     ]
 }
