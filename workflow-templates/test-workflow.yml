@@ -7,8 +7,11 @@ on:
     branches: [ $default-branch ]
 
 jobs:
-  build:
+  ci:
     runs-on: [microservices2]
+    env:
+      MICROSERVICE: ${{ github.repository }}
+      AWX_STACK_NAME: ${{ github.repository }}
 
     steps:
       - uses: actions/checkout@v4
