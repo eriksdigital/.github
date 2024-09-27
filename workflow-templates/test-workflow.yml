@@ -10,11 +10,17 @@ jobs:
   ci:
     runs-on: [microservices2]
     env:
-      MICROSERVICE: $repo
-      AWX_STACK_NAME: $repo
+      MICROSERVICE: ${{ github.repository }}
+      AWX_STACK_NAME: ${{ github.repository }}
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Run a one-line script
-        run: echo hello I'm test workflow
+    - name: Permission fix
+      shell: bash
+      run: sudo chown -R automation:automation .
+      
+    - name: Clone repository
+      uses: actions/checkout@v2
+      with:
+        token: ${{ secrets.PAT }}
+        ref: ${{ github.ref }}
+        fetch-depth: 0
