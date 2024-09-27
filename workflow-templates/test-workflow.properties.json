@@ -1,6 +1,6 @@
 {
-    "name": "Frontend Guided Selling workflow.",
-    "description": "Test CI/CD workflow template.",
+    "name": "Frontend Guided Selling workflow",
+    "description": "Template workflow for frontend guided selling services.",
     "iconName": "ERIKS_logo",
     "categories": [
         "Continuous integration",
