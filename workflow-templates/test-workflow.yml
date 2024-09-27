@@ -24,3 +24,172 @@ jobs:
         token: ${{ secrets.PAT }}
         ref: ${{ github.ref }}
         fetch-depth: 0
+
+    - name: Extract branch name
+      shell: bash
+      run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+      id: extract_branch
+
+    - name: Clone private actions
+      uses: actions/checkout@v2
+      with:
+        repository: eriksdigital/github-actions
+        token: ${{ secrets.PAT }}
+        path: ./.github/actions/github-actions
+
+    - name: Restore cache gradle_data-unit
+      uses: actions/cache@v3
+      with:
+          path: ./gradle_data-unit
+          key: ${{ env.MICROSERVICE }}-gradle_data-unit-${{ hashFiles('**/*gradle_data-unit*') }}
+
+    - name: Build jar file
+      uses: ./.github/actions/github-actions/gradle-java17
+      env:
+         TOKEN: ${{ secrets.PAT }}
+         ACTOR: ${{ env.GITHUB_ACTOR }}
+         GRADLE_OPTS=-Dorg.gradle.daemon: false
+         GRADLE_USER_HOME: ./gradle_data-unit
+      with:
+       gradle_args: '--info clean assemble'
+
+    - name: Run unit tests
+      uses: ./.github/actions/github-actions/gradle-java17
+      env:
+         TOKEN: ${{ secrets.PAT }}
+         ACTOR: ${{ env.GITHUB_ACTOR }}
+         GRADLE_OPTS=-Dorg.gradle.daemon: false
+         GRADLE_USER_HOME: ./gradle_data-unit
+      with:
+       gradle_args: '--project-cache-dir=./gradle_data-unit -Dorg.gradle.project.buildDir=./build-unit --info test'
+
+    - name: Upload unit tests to Azure
+      uses: ./.github/actions/github-actions/upload-reports
+      env:
+       AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.CONNECTION_STRING_SAEDEUCICDDRONE001 }}
+      with:
+       src_dir: /github/workspace/build-unit/reports/HtmlReport/test
+       dst_dir: $web/${{ env.MICROSERVICE }}/${{ github.run_id }}/unit
+
+    - name: Restore cache gradle_data-owasp
+      uses: actions/cache@v3
+      with:
+          path: ./gradle_data-owasp
+          key: ${{ env.MICROSERVICE }}-gradle_data-owasp-${{ hashFiles('**/*gradle_data-owasp*') }}
+
+    - name: Run vulnerability tests
+      uses: ./.github/actions/github-actions/gradle-java17
+      env:
+         TOKEN: ${{ secrets.PAT }}
+         ACTOR: ${{ env.GITHUB_ACTOR }}
+         GRADLE_OPTS=-Dorg.gradle.daemon: false
+         GRADLE_USER_HOME: ./gradle_data-owasp
+      with:
+       gradle_args: '--project-cache-dir=./gradle_data-owasp --info --stacktrace dependencyCheckAnalyze'
+
+    - name: Prepare jacoco cumulative report
+      run: |
+       cp -r build-unit/classes/java/test build/classes/java/test
+       mkdir build/jacoco
+       cp build-unit/jacoco/test.exec build/jacoco/
+
+    - name: Run jacoco cumulative report
+      uses: ./.github/actions/github-actions/gradle-java17
+      env:
+         TOKEN: ${{ secrets.PAT }}
+         ACTOR: ${{ env.GITHUB_ACTOR }}
+         GRADLE_OPTS=-Dorg.gradle.daemon: false
+         GRADLE_USER_HOME: ./gradle_data-unit
+      with:
+       gradle_args: '--info copyDependencies jacocoTestReport'
+
+    - name: Run jacoco coverage verification
+      uses: ./.github/actions/github-actions/gradle-java17
+      env:
+         TOKEN: ${{ secrets.PAT }}
+         ACTOR: ${{ env.GITHUB_ACTOR }}
+         GRADLE_OPTS=-Dorg.gradle.daemon: false
+         GRADLE_USER_HOME: ./gradle_data-unit
+      with:
+       gradle_args: '--info  jacocoTestReport'
+
+    - name: Run code analysis
+      uses: ./.github/actions/github-actions/sonarqube
+      with:
+       sonar_url: ${{ secrets.SONAR_URL }}
+       sonar_token: ${{ secrets.SONAR_TOKEN }}
+       branch: ${{ steps.extract_branch.outputs.branch }}
+
+    - name: Set version level (master)
+      if: github.ref == 'refs/heads/master'
+      env:
+        VERSION_LEVEL: minor
+      run: |
+        echo "VERSION_LEVEL=minor" >> $GITHUB_ENV
+
+    - name: Set version level (hotfix)
+      if: startsWith(github.ref, 'refs/heads/hotfix-')
+      env:
+        VERSION_LEVEL: patch
+      run: |
+        echo "VERSION_LEVEL=patch" >> $GITHUB_ENV
+
+    - name: Tag git repository
+      if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/hotfix-')
+      id: tag-git-repository
+      uses: ./.github/actions/github-actions/github-tag-action
+      env:
+       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+       DEFAULT_BUMP: ${{ env.VERSION_LEVEL }}
+       RELEASE_BRANCHES: master,hotfix-.*
+       TAG_CONTEXT: branch
+       DRY_RUN: false
+
+    - name: Publish docker image
+      if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/hotfix-')
+      env:
+        DOCKER_BUILDKIT: 1
+      run: |
+       docker build -t ${{ secrets.DOCKER_REGISTRY_URL }}/${{ env.MICROSERVICE }}:${{ steps.tag-git-repository.outputs.tag }} .
+       docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }} ${{ secrets.DOCKER_REGISTRY_URL }}
+       docker push ${{ secrets.DOCKER_REGISTRY_URL }}/${{ env.MICROSERVICE }}:${{ steps.tag-git-repository.outputs.tag }}
+
+    - name: Publish aks docker image
+      if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/hotfix-')
+      env:
+        DOCKER_BUILDKIT: 1
+      run: |
+       docker build -t ${{ secrets.DOCKER_REGISTRY_URL }}/${{ env.MICROSERVICE }}:${{ steps.tag-git-repository.outputs.tag }}_aks -f Dockerfile_aks .
+       docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }} ${{ secrets.DOCKER_REGISTRY_URL }}
+       docker push ${{ secrets.DOCKER_REGISTRY_URL }}/${{ env.MICROSERVICE }}:${{ steps.tag-git-repository.outputs.tag }}_aks
+
+    - name: Call AWX API
+      if: github.ref == 'refs/heads/master'
+      uses: ./.github/actions/github-actions/ansible-awx
+      with:
+        awx_url: ${{ secrets.AWX_URL }}
+        awx_username: ${{ secrets.AWX_USERNAME }}
+        awx_password: ${{ secrets.AWX_PASSWORD }}
+        job_template: 'stack-deploy-test'
+        extra_vars: stack_name=${{ env.AWX_STACK_NAME }}
+        docker_image_version: ${{ steps.tag-git-repository.outputs.tag }}
+
+    - name: Teams notification (success)
+      if: ${{ success() }}
+      uses: jdcargile/ms-teams-notification@v1.2
+      with:
+        github-token: ${{ github.token }}
+        ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_URI_IRIS }}
+        notification-summary: Build passed!
+        notification-color: 28a745
+        timezone: Europe/Amsterdam
+
+    - name: Teams notification (failure)
+      if: ${{ failure() }}
+      uses: jdcargile/ms-teams-notification@v1.2
+      with:
+        github-token: ${{ github.token }}
+        ms-teams-webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_URI_IRIS }}
+        notification-summary: Build failed!
+        notification-color: dc3545
+        timezone: Europe/Amsterdam
