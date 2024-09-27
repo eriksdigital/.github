@@ -1,6 +1,12 @@
 name: FRONTEND
 
 on:
+  workflow_call:
+      MICROSERVICE:
+        description: 'The name of the service'
+        required: true
+        type: string
+        default: 'latest'
   push:
     branches: [ $default-branch,hotfix-*  ]
   pull_request:
@@ -10,7 +16,6 @@ jobs:
   ci:
     runs-on: [microservices2]
     env:
-      MICROSERVICE: ${{ github.repository }}
       AWX_STACK_NAME: ${{ github.repository }}
 
     steps:
