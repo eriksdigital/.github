@@ -1,0 +1,31 @@
+name: PUSH LOCALES
+
+on:
+  workflow_dispatch:
+
+
+jobs:
+
+  ci:
+    runs-on: [self-hosted, microservices2]
+
+    steps:
+
+    - name: Clone repository
+      uses: actions/checkout@v2
+      with:
+        token: ${{ secrets.PAT }}
+        ref: ${{ github.ref }}
+        fetch-depth: 0
+      
+    - name: Clone private actions
+      uses: actions/checkout@v2
+      with:
+        repository: eriksdigital/github-actions
+        token: ${{ secrets.PAT }}
+        path: ./.github/actions/github-actions
+        
+    - name: Strapi push locales
+      uses: ./.github/actions/github-actions/strapi
+      with:
+       action: push

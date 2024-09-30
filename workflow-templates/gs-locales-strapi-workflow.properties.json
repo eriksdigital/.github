@@ -1,0 +1,13 @@
+{
+    "name": "Guided Selling push locales - strapi",
+    "description": "Template workflow for strapi - push locales.",
+    "iconName": "ERIKS_logo",
+    "categories": [
+        "Continuous integration",
+		"Node"
+    ],
+    "filePatterns": [
+        "package.json$",
+        "^Dockerfile"
+    ]
+}
