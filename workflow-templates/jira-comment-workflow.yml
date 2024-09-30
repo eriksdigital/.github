@@ -1,0 +1,71 @@
+name: Jira Comment
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'service version to attach the comment'
+        required: true
+      comment:
+        description: 'comment to attach'
+        required: true
+      test_type:
+        description: 'test type just executed'
+        required: false
+      test_result:
+        description: 'test result'
+        required: false
+
+jobs:
+  deployment:
+    name: Release deployed to environment
+    runs-on: [microservices2]
+    env:
+      MICROSERVICE: sam-assetmgt-api
+    steps:
+         
+    - name: Clone repository
+      uses: actions/checkout@v2
+      with:
+        token: ${{ secrets.PAT }}
+        fetch-depth: 0
+
+    - name: Clone private actions
+      uses: actions/checkout@v2
+      with:
+        repository: eriksdigital/github-actions
+        token: ${{ secrets.PAT }}
+        path: ./.github/actions/github-actions
+        
+    - name: Extract last commit message
+      id: deployment_extract_last_commit
+      shell: bash
+      run: |
+        echo "##[set-output name=message;]$(git log $tag --format=%B -n 1 | head -n 1)"
+      env:
+        tag: ${{ github.event.inputs.version }}
+
+    - name: Login Jira cloud
+      uses: atlassian/gajira-login@master
+      env:
+        JIRA_USER_EMAIL: ${{ secrets.JIRA_USERNAME }}
+        JIRA_API_TOKEN: ${{ secrets.JIRA_TOKEN }}
+        JIRA_BASE_URL: ${{ secrets.JIRA_URL }}
+
+    - name: Find Jira ticket code in branch
+      id: deployment_jira_issue
+      uses: atlassian/gajira-find-issue-key@master
+      with:
+        string: ${{ steps.deployment_extract_last_commit.outputs.message }}
+
+    - name: Comment on Jira ticket
+      uses: ./.github/actions/github-actions/sam-jira-comment
+      with: 
+        jira_username: ${{ secrets.JIRA_USERNAME }}
+        jira_token: ${{ secrets.JIRA_TOKEN }}
+        jira_url: ${{ secrets.JIRA_URL }}
+        jira_issue_related: ${{ steps.deployment_jira_issue.outputs.issue }}
+        jira_comment: ${{ github.event.inputs.comment }}
+        component_name: ${{ env.MICROSERVICE }}
+        test_type: ${{ github.event.inputs.test_type }}
+        test_result: ${{ github.event.inputs.test_result }}

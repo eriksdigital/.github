@@ -1,0 +1,84 @@
+name: Jira Pull Request
+
+on:
+  pull_request:
+    types: [ opened, reopened, ready_for_review, review_requested ]
+    branches: [ $default-branch, hotfix-* ]
+  push:
+    branches: [ hotfix-* ]
+
+jobs:
+  pull_request:
+    name: Release candidate created
+    if: github.actor!= 'dependabot-preview[bot]'
+    runs-on: [microservices2]
+    env:
+      MICROSERVICE: sam-assetmgt-api
+    steps:
+    
+    - name: Clone private actions
+      uses: actions/checkout@v2
+      with:
+        repository: eriksdigital/github-actions
+        token: ${{ secrets.PAT }}
+        path: ./.github/actions/github-actions
+
+    - name: Login Jira cloud
+      uses: atlassian/gajira-login@master
+      env:
+        JIRA_USER_EMAIL: ${{ secrets.JIRA_USERNAME }}
+        JIRA_API_TOKEN: ${{ secrets.JIRA_TOKEN }}
+        JIRA_BASE_URL: ${{ secrets.JIRA_URL }}
+
+    - name: Find Jira ticket code in head
+      if: (! startsWith(github.ref, 'refs/heads/hotfix-'))
+      id: pull_request_jira_in_head
+      uses: atlassian/gajira-find-issue-key@master
+      with:
+        string: ${{ github.event.pull_request.head.ref }}
+
+    - name: Find Jira ticket code in branch
+      if: startsWith(github.ref, 'refs/heads/hotfix-')
+      id: pull_request_jira_in_branch
+      uses: atlassian/gajira-find-issue-key@master
+      with:
+        string: ${{ github.ref }}
+
+    - name: Find Jira issue
+      id: pull_request_jira_issue
+      run: |
+        if [[ ! -z "$IN_HEAD" ]]; then
+            echo "##[set-output name=issue;]$IN_HEAD"
+        elif [[ ! -z "$IN_BRANCH" ]]; then
+            echo "##[set-output name=issue;]$IN_BRANCH"
+        fi
+      env:
+        IN_HEAD: ${{ steps.pull_request_jira_in_head.outputs.issue }}
+        IN_BRANCH: ${{ steps.pull_request_jira_in_branch.outputs.issue }}
+        
+    - name: Create Jira release ticket (if it does not exist)
+      uses: ./.github/actions/github-actions/sam-jira-create
+      with: 
+        jira_username: ${{ secrets.JIRA_USERNAME }}
+        jira_token: ${{ secrets.JIRA_TOKEN }}
+        jira_url: ${{ secrets.JIRA_URL }}
+        jira_issue_related: ${{ steps.pull_request_jira_issue.outputs.issue }}
+        component_name: ${{ env.MICROSERVICE }}
+
+    - name: Transition Jira ticket to Peer Review
+      if: (! github.event.pull_request.draft)
+      uses: ./.github/actions/github-actions/sam-jira-transition
+      with: 
+        jira_username: ${{ secrets.JIRA_USERNAME }}
+        jira_token: ${{ secrets.JIRA_TOKEN }}
+        jira_url: ${{ secrets.JIRA_URL }}
+        jira_transition: Peer Review
+        jira_issue_related: ${{ steps.pull_request_jira_issue.outputs.issue }}
+        component_name: ${{ env.MICROSERVICE }}
+        version: ${{ github.event.number }}
+    -   name: Create comment
+        uses: peter-evans/create-or-update-comment@v1
+        with:
+          issue-number:  ${{github.event.pull_request.number}}
+          body: |
+            This PR is attached to a ticket [${{ steps.pull_request_jira_issue.outputs.issue }}](https://eriksdigital.atlassian.net/browse/${{ steps.pull_request_jira_issue.outputs.issue }}) 

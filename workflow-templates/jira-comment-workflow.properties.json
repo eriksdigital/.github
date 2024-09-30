@@ -1,10 +1,10 @@
 {
-    "name": "SAM backend workflow",
-    "description": "Template workflow for backend SAM services. Maven",
+    "name": "Jira comment workflow",
+    "description": "Template workflow for jira comment.",
     "iconName": "ERIKS_logo",
     "categories": [
         "Continuous integration",
-		"Java"
+		"Deployment"
     ],
     "filePatterns": [
         "^Dockerfile"
