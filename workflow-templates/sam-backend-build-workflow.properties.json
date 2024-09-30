@@ -1,0 +1,12 @@
+{
+    "name": "SAM backend workflow",
+    "description": "Template workflow for backend SAM services. Maven",
+    "iconName": "ERIKS_logo",
+    "categories": [
+        "Continuous integration",
+		"Maven"
+    ],
+    "filePatterns": [
+        "^Dockerfile"
+    ]
+}
