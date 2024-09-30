@@ -4,7 +4,7 @@
     "iconName": "ERIKS_logo",
     "categories": [
         "Continuous integration",
-		"java"
+		"Java"
     ],
     "filePatterns": [
         "*.gradle",
