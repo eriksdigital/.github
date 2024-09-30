@@ -1,0 +1,13 @@
+{
+    "name": "Guided Selling backend workflow",
+    "description": "Template workflow for backend guided selling services. Gradle Java 17",
+    "iconName": "ERIKS_logo",
+    "categories": [
+        "Continuous integration",
+		"java"
+    ],
+    "filePatterns": [
+        "*.gradle",
+        "^Dockerfile"
+    ]
+}

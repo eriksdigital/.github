@@ -1,19 +1,21 @@
-name: FRONTEND
+name: BACKEND
 
 on:
   push:
-    branches: [ $default-branch,hotfix-*  ]
+    branches: [ $default-branch,hotfix-* ]
   pull_request:
     branches: [ $default-branch ]
 
 jobs:
+
   ci:
     runs-on: [microservices2]
     env:
-      MICROSERVICE: ${{ github.repository }}
-      AWX_STACK_NAME: ${{ github.repository }}
+      MICROSERVICE: gs-search-valves-configurator
+      AWX_STACK_NAME: gs-search-valves-configurator
 
     steps:
+    
     - name: Permission fix
       shell: bash
       run: sudo chown -R automation:automation .

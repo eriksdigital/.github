@@ -1,6 +1,6 @@
 {
-    "name": "Guided Selling workflow",
-    "description": "Template workflow for frontend guided selling services.",
+    "name": "Guided Selling frontend workflow",
+    "description": "Template workflow for frontend guided selling services. Node 20.",
     "iconName": "ERIKS_logo",
     "categories": [
         "Continuous integration",
