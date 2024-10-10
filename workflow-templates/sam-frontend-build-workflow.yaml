@@ -1,24 +1,19 @@
-name: BACKEND
+name: FRONTEND
 
 on:
   push:
-    branches: [ $default-branch,hotfix-* ]
+    branches: [ master,hotfix-* ]
   pull_request:
-    branches: [ $default-branch ]
+    branches: [ master ]
 
 jobs:
 
   ci:
-    runs-on: [microservices2]
+    runs-on: [self-hosted, microservices2]
     env:
       MICROSERVICE: #PLEASE ADD SERVICE NAME
 
     steps:
-        
-    - name: Extract branch name
-      shell: bash
-      run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
-      id: extract_branch
 
     - name: Clone repository
       uses: actions/checkout@v2
@@ -27,83 +22,84 @@ jobs:
         ref: ${{ github.ref }}
         fetch-depth: 0
 
+    - name: Extract branch name
+      shell: bash
+      run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+      id: extract_branch
+
     - name: Clone private actions
       uses: actions/checkout@v2
       with:
         repository: eriksdigital/github-actions
         token: ${{ secrets.PAT }}
         path: ./.github/actions/github-actions
-    
-    - name: Build project
-      uses: ./.github/actions/github-actions/sam-maven-gp
-      env:
-        MAVEN_OPTS: '-Xmx3072m'
-      with:
-       maven_args: 'clean install'
-       pat: ${{ secrets.PAT }}
 
-    - name: Dependency check
-      uses: ./.github/actions/github-actions/sam-maven-gp
-      env:
-        MAVEN_OPTS: '-Xmx3072m'
+    - name: Build application
+      uses: ./.github/actions/github-actions/node-v16-yarn-gp
       with:
-       maven_args: 'dependency-check:aggregate'
-       pat: ${{ secrets.PAT }}
+       yarn_args: 'run build'
+       npm_token: ${{ secrets.PAT }}
+
+    - name: Run unit tests
+      uses: ./.github/actions/github-actions/node-v16-yarn-gp
+      with:
+       yarn_args: 'run test'
 
     - name: Run code analysis
       uses: ./.github/actions/github-actions/sonarqube
       with:
-        sonar_url: ${{ secrets.SONAR_URL }}
-        sonar_token: ${{ secrets.SONAR_TOKEN }}
-        branch: ${{ steps.extract_branch.outputs.branch }}
+       sonar_url: ${{ secrets.SONAR_URL }}
+       sonar_token: ${{ secrets.SONAR_TOKEN }}
+       branch: ${{ steps.extract_branch.outputs.branch }}
 
     - name: Set version level (master)
       if: github.ref == 'refs/heads/master'
       run: |
         echo "VERSION_LEVEL=minor" >> $GITHUB_ENV
-        
+
     - name: Set version level (hotfix)
       if: startsWith(github.ref, 'refs/heads/hotfix-')
       run: |
-        echo "VERSION_LEVEL=patch" >> $GITHUB_ENV    
+        echo "VERSION_LEVEL=patch" >> $GITHUB_ENV
+
 
     - name: Tag git repository
-      if: github.ref == 'refs/heads/$default-branch' || startsWith(github.ref, 'refs/heads/hotfix-')
+      if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/hotfix-')
       id: tag-git-repository
       uses: ./.github/actions/github-actions/github-tag-action
       env:
        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
        DEFAULT_BUMP: ${{ env.VERSION_LEVEL }}
-       RELEASE_BRANCHES: $default-branch,hotfix-.*      
+       RELEASE_BRANCHES: master,hotfix-.*
        TAG_CONTEXT: branch
-       DRY_RUN: false   
-      
+       DRY_RUN: false
+
     - name: Publish docker image
-      if: github.ref == 'refs/heads/$default-branch' || startsWith(github.ref, 'refs/heads/hotfix-')
+      if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/hotfix-')
       env:
         DOCKER_BUILDKIT: 1
       run: |
-       echo ${{ steps.tag-git-repository.outputs.tag }} > ./VERSION
-       docker build -t ${{ secrets.IOT_DOCKER_REGISTRY_URL }}/${{ env.MICROSERVICE }}:${{ steps.tag-git-repository.outputs.tag }} .
-       docker login --username=${{ secrets.IOT_DOCKER_USERNAME }} --password=${{ secrets.IOT_DOCKER_PASSWORD }} ${{ secrets.IOT_DOCKER_REGISTRY_URL }}
-       docker push ${{ secrets.IOT_DOCKER_REGISTRY_URL }}/${{ env.MICROSERVICE }}:${{ steps.tag-git-repository.outputs.tag }}
-       
+        echo ${{ steps.tag-git-repository.outputs.tag }} > ./VERSION
+        docker build -t ${{ secrets.IOT_DOCKER_REGISTRY_URL }}/${{ env.MICROSERVICE }}:${{ steps.tag-git-repository.outputs.tag }} .
+        docker login --username=${{ secrets.IOT_DOCKER_USERNAME }} --password=${{ secrets.IOT_DOCKER_PASSWORD }} ${{ secrets.IOT_DOCKER_REGISTRY_URL }}
+        docker push ${{ secrets.IOT_DOCKER_REGISTRY_URL }}/${{ env.MICROSERVICE }}:${{ steps.tag-git-repository.outputs.tag }}
+
     - name: Teams notification (success)
       if: ${{ success() }}
       uses: jdcargile/ms-teams-notification@v1.2
       with:
         github-token: ${{ github.token }}
         ms-teams-webhook-uri: ${{ secrets.IOT_MS_TEAMS_WEBHOOK_URI }}
-        notification-summary: Build passed! 
+        notification-summary: Build passed!
         notification-color: 28a745
         timezone: Europe/Amsterdam
-     
+
     - name: Teams notification (failure)
       if: ${{ failure() }}
       uses: jdcargile/ms-teams-notification@v1.2
       with:
         github-token: ${{ github.token }}
         ms-teams-webhook-uri: ${{ secrets.IOT_MS_TEAMS_WEBHOOK_URI }}
-        notification-summary: Build failed! 
+        notification-summary: Build failed!
         notification-color: dc3545
         timezone: Europe/Amsterdam

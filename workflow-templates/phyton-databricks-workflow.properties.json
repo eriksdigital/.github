@@ -1,0 +1,12 @@
+{
+    "name": "Upload Python Wheel to Azure Data Bricks",
+    "description": "Template workflow for Azure Data Bricks. Python",
+    "iconName": "ERIKS_logo",
+    "categories": [
+        "Continuous integration",
+		"Python"
+    ],
+    "filePatterns": [
+        "^Dockerfile"
+    ]
+}

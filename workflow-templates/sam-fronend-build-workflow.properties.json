@@ -1,0 +1,12 @@
+{
+    "name": "SAM frontend workflow",
+    "description": "Template workflow for frontend SAM services. Node 16",
+    "iconName": "ERIKS_logo",
+    "categories": [
+        "Continuous integration",
+		"Node"
+    ],
+    "filePatterns": [
+        "^Dockerfile"
+    ]
+}

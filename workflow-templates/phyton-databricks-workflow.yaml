@@ -1,0 +1,55 @@
+#This pipeline is using OpenID Connect to autenticate Azure.
+# Example REQ0222515
+#1.Create a service principal:  https://learn.microsoft.com/en-gb/entra/identity-platform/howto-create-service-principal-portal
+#2.Assign a role: Scope : Subscription, Resource Group, Role : contributor
+#3.Configure a federated identity credential on an service principal: https://learn.microsoft.com/en-gb/entra/workload-id/workload-identity-federation-create-trust?pivots=identity-wif-apps-methods-azp#github-actions
+#  Organization : eriksdigital
+#  Repository: 
+#  Entity type : Environment 
+#  Github environment name :
+#  Subject Identifier: repo:eriksdigital/reponame:environment:ENV
+
+name: Upload Python Wheel
+
+on:
+  workflow_dispatch:
+  
+jobs:
+  build:
+    environment: #env
+    env:
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN  }}
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+    runs-on: [self-hosted, microservices]
+
+    steps:
+    - name: Clone repository
+      uses: actions/checkout@v2
+      with:
+        token: ${{ secrets.PAT }}
+        ref: ${{ github.ref }}
+        fetch-depth: 0
+
+    - name: Azure login
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}    
+
+    - name: Clone private actions
+      uses: actions/checkout@v2
+      with:
+        repository: eriksdigital/github-actions
+        token: ${{ secrets.PAT }}
+        path: ./.github/actions/github-actions
+        
+    - name: Build wheel
+      uses: ./.github/actions/github-actions/python-v37
+      with:
+        python_args: setup.py bdist_wheel
+ 
+    - name: Upload Wheel
+      uses: ./.github/actions/github-actions/databricks
+      with:
+        databricks_args: #arg
