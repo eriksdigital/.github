@@ -40,7 +40,7 @@ jobs:
         path: ./.github/actions/github-actions
 
     - name: Restore cache gradle_data-unit
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
           path: ./gradle_data-unit
           key: ${{ env.MICROSERVICE }}-gradle_data-unit-${{ hashFiles('**/*gradle_data-unit*') }}
@@ -74,7 +74,7 @@ jobs:
        dst_dir: $web/${{ env.MICROSERVICE }}/${{ github.run_id }}/unit
 
     - name: Restore cache gradle_data-owasp
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
           path: ./gradle_data-owasp
           key: ${{ env.MICROSERVICE }}-gradle_data-owasp-${{ hashFiles('**/*gradle_data-owasp*') }}
